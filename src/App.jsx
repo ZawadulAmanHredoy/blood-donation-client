@@ -16,6 +16,8 @@ import PendingRequestsPublic from "./pages/PendingRequestsPublic.jsx";
 import AdminUsers from "./pages/AdminUsers.jsx";
 import AdminRequests from "./pages/AdminRequests.jsx";
 import VolunteerRequests from "./pages/VolunteerRequests.jsx";
+import ProfilePage from "./pages/ProfilePage.jsx";
+import FundingPage from "./pages/FundingPage.jsx";
 
 import Navbar from "./components/Navbar.jsx";
 
@@ -44,6 +46,10 @@ function App() {
           {/* /dashboard */}
           <Route index element={<DashboardHome />} />
 
+          {/* Profile & funding */}
+          <Route path="profile" element={<ProfilePage />} />
+          <Route path="funding" element={<FundingPage />} />
+
           {/* Donor/common */}
           <Route
             path="create-donation-request"
@@ -56,10 +62,7 @@ function App() {
           <Route path="requests/:id" element={<DonationRequestDetails />} />
 
           {/* Volunteer */}
-          <Route
-            path="volunteer/requests"
-            element={<VolunteerRequests />}
-          />
+          <Route path="volunteer/requests" element={<VolunteerRequests />} />
 
           {/* Admin */}
           <Route path="admin/users" element={<AdminUsers />} />

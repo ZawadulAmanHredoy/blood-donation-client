@@ -1,35 +1,57 @@
 // client/src/api/fundingApi.js
-import { apiRequest } from "./apiClient.js";
 
-// Create Stripe payment
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+
+function getToken() {
+  return localStorage.getItem("token");
+}
+
+async function request(path, { method = "GET", body, auth = true } = {}) {
+  const headers = {};
+
+  if (body && !(body instanceof FormData)) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  if (auth) {
+    const token = getToken();
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+  }
+
+  const res = await fetch(`${API_BASE}${path}`, {
+    method,
+    headers,
+    body,
+  });
+
+  let data = null;
+  try {
+    data = await res.json();
+  } catch {
+    data = null;
+  }
+
+  if (!res.ok) {
+    const msg = data?.message || `Request failed with status ${res.status}`;
+    throw new Error(msg);
+  }
+
+  return data;
+}
+
+// GET /api/funding  → list all funding entries
+export function getFundingListApi() {
+  return request("/api/funding");
+}
+
+// POST /api/funding/create-payment-intent  → create Stripe PaymentIntent
+// amount is in minor units (e.g. 500 = $5.00) OR normal number (we'll treat as BDT)
 export function createPaymentIntentApi(amount) {
-  return apiRequest("/api/funding/create-payment-intent", {
+  return request("/api/funding/create-payment-intent", {
     method: "POST",
     body: JSON.stringify({ amount }),
   });
-}
-
-// Record successful payment
-export function recordFundingApi(amount) {
-  return apiRequest("/api/funding/record", {
-    method: "POST",
-    body: JSON.stringify({ amount }),
-  });
-}
-
-// Current user's funding
-export function getMyFundingApi({ page = 1, limit = 10 } = {}) {
-  const params = new URLSearchParams({ page, limit });
-  return apiRequest(`/api/funding/my?${params.toString()}`);
-}
-
-// Admin/Volunteer: all funding
-export function getAllFundingApi({ page = 1, limit = 10 } = {}) {
-  const params = new URLSearchParams({ page, limit });
-  return apiRequest(`/api/funding/all?${params.toString()}`);
-}
-
-// Total funding (dashboard stat)
-export function getTotalFundingApi() {
-  return apiRequest("/api/funding/total");
 }

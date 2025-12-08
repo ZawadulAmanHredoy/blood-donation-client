@@ -33,9 +33,11 @@ export default function DashboardLayout() {
           {/* Overview */}
           <MenuSection title="Overview">
             <SidebarLink to="/dashboard" label="Dashboard Home" />
+            <SidebarLink to="/dashboard/profile" label="My Profile" />
+            <SidebarLink to="/dashboard/funding" label="Funding" />
           </MenuSection>
 
-          {/* Requests for all authenticated users */}
+          {/* Requests */}
           <MenuSection title="Requests">
             <SidebarLink
               to="/dashboard/create-donation-request"
@@ -47,7 +49,7 @@ export default function DashboardLayout() {
             />
           </MenuSection>
 
-          {/* Volunteer-only section */}
+          {/* Volunteer-only */}
           {user?.role === "volunteer" && (
             <MenuSection title="Volunteer">
               <SidebarLink
@@ -57,7 +59,7 @@ export default function DashboardLayout() {
             </MenuSection>
           )}
 
-          {/* Admin-only section */}
+          {/* Admin-only */}
           {user?.role === "admin" && (
             <MenuSection title="Admin">
               <SidebarLink
@@ -72,7 +74,7 @@ export default function DashboardLayout() {
           )}
         </nav>
 
-        {/* Footer with user info + logout */}
+        {/* Footer */}
         <div className="p-3 border-t border-slate-700 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             {user?.avatar && (
