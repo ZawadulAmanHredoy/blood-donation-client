@@ -24,7 +24,7 @@ function StatCard({ label, value, helper }) {
 
 function ChartCard({ title, subtitle, children, rightSlot }) {
   return (
-    <div className="rounded-2xl border border-slate-700/60 bg-gradient-to-br from-slate-950 to-slate-900 p-5 shadow-lg">
+    <div className="min-w-0 rounded-2xl border border-slate-700/60 bg-gradient-to-br from-slate-950 to-slate-900 p-5 shadow-lg">
       <div className="mb-4 flex flex-col gap-1 md:flex-row md:items-end md:justify-between">
         <div>
           <h2 className="text-lg font-bold text-white">{title}</h2>
@@ -35,14 +35,16 @@ function ChartCard({ title, subtitle, children, rightSlot }) {
         {rightSlot ? <div className="mt-2 md:mt-0">{rightSlot}</div> : null}
       </div>
 
-      <div className="h-[320px] w-full">{children}</div>
+      {/* ✅ force real height so recharts never gets -1 */}
+      <div className="w-full min-w-0" style={{ height: 320 }}>
+        {children}
+      </div>
     </div>
   );
 }
 
 function PrettyTooltip({ active, payload, label }) {
   if (!active || !payload || !payload.length) return null;
-
   const value = payload[0]?.value ?? 0;
 
   return (
@@ -62,7 +64,7 @@ export default function DashboardHome() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const role = user?.role || "donor";
+  const lastUpdatedText = useMemo(() => new Date().toLocaleString(), []);
 
   useEffect(() => {
     if (!isPrivileged) return;
@@ -87,17 +89,12 @@ export default function DashboardHome() {
     run();
   }, [isPrivileged]);
 
-  const lastUpdatedText = useMemo(() => {
-    const now = new Date();
-    return now.toLocaleString();
-  }, []);
-
   if (!isPrivileged) {
     return (
       <div className="rounded-2xl border border-slate-700/60 bg-slate-900 p-6 text-slate-200">
         <h1 className="text-2xl font-bold text-white">Dashboard</h1>
         <p className="mt-2 text-sm text-slate-400">
-          Welcome! Charts are available for Admin/Volunteer only.
+          Charts are available for Admin/Volunteer only.
         </p>
       </div>
     );
@@ -105,17 +102,15 @@ export default function DashboardHome() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
         <div>
           <h1 className="text-2xl font-extrabold text-white">
-            {role === "admin" ? "Admin Dashboard" : "Volunteer Dashboard"}
+            {user?.role === "admin" ? "Admin Dashboard" : "Volunteer Dashboard"}
           </h1>
           <p className="text-sm text-slate-400">
             Daily, weekly, and monthly request statistics.
           </p>
         </div>
-
         <div className="text-xs text-slate-400">
           {loading ? "Loading…" : `Last updated: ${lastUpdatedText}`}
         </div>
@@ -127,73 +122,30 @@ export default function DashboardHome() {
         </div>
       ) : null}
 
-      {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-3">
-        <StatCard
-          label="Total Users"
-          value={loading ? "…" : summary?.totalUsers}
-          helper="All registered users"
-        />
-        <StatCard
-          label="Total Funds (BDT)"
-          value={loading ? "…" : summary?.totalFunds}
-          helper="Sum of all funding"
-        />
-        <StatCard
-          label="Pending Requests"
-          value={loading ? "…" : summary?.requests?.pending}
-          helper="Needs donors"
-        />
+        <StatCard label="Total Users" value={summary?.totalUsers} helper="All registered users" />
+        <StatCard label="Total Funds (BDT)" value={summary?.totalFunds} helper="Sum of all funding" />
+        <StatCard label="Pending Requests" value={summary?.requests?.pending} helper="Needs donors" />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <StatCard
-          label="In Progress Requests"
-          value={loading ? "…" : summary?.requests?.inprogress}
-          helper="Accepted / ongoing"
-        />
-        <StatCard
-          label="Completed Requests"
-          value={loading ? "…" : summary?.requests?.done}
-          helper="Done donations"
-        />
+        <StatCard label="In Progress Requests" value={summary?.requests?.inprogress} helper="Accepted / ongoing" />
+        <StatCard label="Completed Requests" value={summary?.requests?.done} helper="Done donations" />
       </div>
 
-      {/* Charts */}
       <div className="grid gap-4 lg:grid-cols-2">
         <ChartCard
           title="Daily Requests"
           subtitle="Last 30 days (createdAt)"
-          rightSlot={
-            <span className="inline-flex items-center rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs text-slate-300">
-              Line chart
-            </span>
-          }
+          rightSlot={<span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs text-slate-300">Line chart</span>}
         >
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={stats?.daily || []} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="4 6" strokeOpacity={0.2} />
-              <XAxis
-                dataKey="label"
-                tick={{ fill: "#94a3b8", fontSize: 11 }}
-                axisLine={{ stroke: "#334155" }}
-                tickLine={{ stroke: "#334155" }}
-              />
-              <YAxis
-                allowDecimals={false}
-                tick={{ fill: "#94a3b8", fontSize: 11 }}
-                axisLine={{ stroke: "#334155" }}
-                tickLine={{ stroke: "#334155" }}
-              />
+              <XAxis dataKey="label" tick={{ fill: "#94a3b8", fontSize: 11 }} axisLine={{ stroke: "#334155" }} tickLine={{ stroke: "#334155" }} />
+              <YAxis allowDecimals={false} tick={{ fill: "#94a3b8", fontSize: 11 }} axisLine={{ stroke: "#334155" }} tickLine={{ stroke: "#334155" }} />
               <Tooltip content={<PrettyTooltip />} />
-              <Line
-                type="monotone"
-                dataKey="value"
-                stroke="#ef4444"
-                strokeWidth={3}
-                dot={false}
-                activeDot={{ r: 5 }}
-              />
+              <Line type="monotone" dataKey="value" stroke="#ef4444" strokeWidth={3} dot={false} activeDot={{ r: 5 }} />
             </LineChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -201,36 +153,15 @@ export default function DashboardHome() {
         <ChartCard
           title="Weekly Requests"
           subtitle="Last 12 weeks (ISO week)"
-          rightSlot={
-            <span className="inline-flex items-center rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs text-slate-300">
-              Trend view
-            </span>
-          }
+          rightSlot={<span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs text-slate-300">Trend view</span>}
         >
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={stats?.weekly || []} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="4 6" strokeOpacity={0.2} />
-              <XAxis
-                dataKey="label"
-                tick={{ fill: "#94a3b8", fontSize: 11 }}
-                axisLine={{ stroke: "#334155" }}
-                tickLine={{ stroke: "#334155" }}
-              />
-              <YAxis
-                allowDecimals={false}
-                tick={{ fill: "#94a3b8", fontSize: 11 }}
-                axisLine={{ stroke: "#334155" }}
-                tickLine={{ stroke: "#334155" }}
-              />
+              <XAxis dataKey="label" tick={{ fill: "#94a3b8", fontSize: 11 }} axisLine={{ stroke: "#334155" }} tickLine={{ stroke: "#334155" }} />
+              <YAxis allowDecimals={false} tick={{ fill: "#94a3b8", fontSize: 11 }} axisLine={{ stroke: "#334155" }} tickLine={{ stroke: "#334155" }} />
               <Tooltip content={<PrettyTooltip />} />
-              <Line
-                type="monotone"
-                dataKey="value"
-                stroke="#22c55e"
-                strokeWidth={3}
-                dot={false}
-                activeDot={{ r: 5 }}
-              />
+              <Line type="monotone" dataKey="value" stroke="#22c55e" strokeWidth={3} dot={false} activeDot={{ r: 5 }} />
             </LineChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -238,52 +169,18 @@ export default function DashboardHome() {
         <ChartCard
           title="Monthly Requests"
           subtitle="Last 12 months"
-          rightSlot={
-            <span className="inline-flex items-center rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs text-slate-300">
-              Overview
-            </span>
-          }
+          rightSlot={<span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs text-slate-300">Overview</span>}
         >
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={stats?.monthly || []} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="4 6" strokeOpacity={0.2} />
-              <XAxis
-                dataKey="label"
-                tick={{ fill: "#94a3b8", fontSize: 11 }}
-                axisLine={{ stroke: "#334155" }}
-                tickLine={{ stroke: "#334155" }}
-              />
-              <YAxis
-                allowDecimals={false}
-                tick={{ fill: "#94a3b8", fontSize: 11 }}
-                axisLine={{ stroke: "#334155" }}
-                tickLine={{ stroke: "#334155" }}
-              />
+              <XAxis dataKey="label" tick={{ fill: "#94a3b8", fontSize: 11 }} axisLine={{ stroke: "#334155" }} tickLine={{ stroke: "#334155" }} />
+              <YAxis allowDecimals={false} tick={{ fill: "#94a3b8", fontSize: 11 }} axisLine={{ stroke: "#334155" }} tickLine={{ stroke: "#334155" }} />
               <Tooltip content={<PrettyTooltip />} />
-              <Line
-                type="monotone"
-                dataKey="value"
-                stroke="#60a5fa"
-                strokeWidth={3}
-                dot={false}
-                activeDot={{ r: 5 }}
-              />
+              <Line type="monotone" dataKey="value" stroke="#60a5fa" strokeWidth={3} dot={false} activeDot={{ r: 5 }} />
             </LineChart>
           </ResponsiveContainer>
         </ChartCard>
-
-        <div className="rounded-2xl border border-slate-700/60 bg-slate-950 p-5 shadow-lg">
-          <h2 className="text-lg font-bold text-white">Notes</h2>
-          <p className="mt-2 text-sm text-slate-400">
-            These charts use <b className="text-slate-200">DonationRequest.createdAt</b> and count
-            how many requests were created in each time bucket.
-          </p>
-          <ul className="mt-3 list-disc pl-5 text-sm text-slate-400 space-y-1">
-            <li>Daily: last 30 days</li>
-            <li>Weekly: last 12 weeks</li>
-            <li>Monthly: last 12 months</li>
-          </ul>
-        </div>
       </div>
     </div>
   );
