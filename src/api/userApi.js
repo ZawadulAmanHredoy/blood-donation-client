@@ -1,8 +1,7 @@
 // client/src/api/userApi.js
 
 // Base URL for your backend API
-const API_BASE =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 
 // Helper: get token from localStorage
 function getToken() {
@@ -28,18 +27,41 @@ async function request(path, { method = "GET", body, auth = true } = {}) {
     body,
   });
 
-  const data = await res.json().catch(() => ({}));
+  let data = {};
+  try {
+    data = await res.json();
+  } catch {
+    data = {};
+  }
 
   if (!res.ok) {
-    throw new Error(data.message || "Request failed");
+    throw new Error(data.message || `Request failed (${res.status})`);
   }
 
   return data;
 }
 
 /* ────────────────────────────────────────────
-   Admin users
+   PROFILE (ProfilePage.jsx depends on these)
 ──────────────────────────────────────────── */
+
+// GET /api/users/me – current logged in user
+export function getMeApi() {
+  return request("/api/users/me");
+}
+
+// PATCH /api/users/me – update own profile
+export function updateProfileApi(payload) {
+  return request("/api/users/me", {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+/* ────────────────────────────────────────────
+   ADMIN: Manage Users (AdminUsers.jsx)
+──────────────────────────────────────────── */
+
 export function getAllUsersApi(params = {}) {
   const search = new URLSearchParams();
   if (params.role) search.set("role", params.role);
@@ -49,7 +71,6 @@ export function getAllUsersApi(params = {}) {
 
   const qs = search.toString();
   const url = qs ? `/api/users?${qs}` : "/api/users";
-
   return request(url);
 }
 
@@ -70,8 +91,9 @@ export function makeVolunteerApi(userId) {
 }
 
 /* ────────────────────────────────────────────
-   Public donor search (NOW PAGINATED ✅)
+   PUBLIC DONOR SEARCH (PAGINATED ✅)
 ──────────────────────────────────────────── */
+
 export function searchDonorsApi({
   bloodGroup,
   district,
@@ -83,11 +105,11 @@ export function searchDonorsApi({
   if (bloodGroup) search.set("bloodGroup", bloodGroup);
   if (district) search.set("district", district);
   if (upazila) search.set("upazila", upazila);
+
   search.set("page", page);
   search.set("limit", limit);
 
-  const qs = search.toString();
-  const url = `/api/users/search-donors?${qs}`;
-
-  return request(url, { auth: false }); // public endpoint
+  return request(`/api/users/search-donors?${search.toString()}`, {
+    auth: false, // public endpoint
+  });
 }
