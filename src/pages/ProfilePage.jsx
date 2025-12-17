@@ -1,7 +1,8 @@
 // client/src/pages/ProfilePage.jsx
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { getMeApi, updateProfileApi } from "../api/userApi.js";
+import { DISTRICTS } from "../data/bdLocations.js";
 
 const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 
@@ -21,11 +22,19 @@ export default function ProfilePage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
+  const districtList = useMemo(() => Object.keys(DISTRICTS), []);
+  const upazilaList = useMemo(() => {
+    if (!form.district) return [];
+    return DISTRICTS[form.district] || [];
+  }, [form.district]);
+
   // Load current profile info
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       setError("");
+      setMessage("");
+
       try {
         const me = await getMeApi();
         setForm({
@@ -47,6 +56,17 @@ export default function ProfilePage() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+
+    // reset upazila when district changes
+    if (name === "district") {
+      setForm((prev) => ({
+        ...prev,
+        district: value,
+        upazila: "",
+      }));
+      return;
+    }
+
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -60,25 +80,18 @@ export default function ProfilePage() {
 
     try {
       const apiKey = import.meta.env.VITE_IMGBB_KEY;
-      if (!apiKey) {
-        throw new Error("ImgBB API key (VITE_IMGBB_KEY) is not set.");
-      }
+      if (!apiKey) throw new Error("ImgBB API key (VITE_IMGBB_KEY) is not set.");
 
       const formData = new FormData();
       formData.append("image", file);
 
-      const res = await fetch(
-        `https://api.imgbb.com/1/upload?key=${apiKey}`,
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
+      const res = await fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
+        method: "POST",
+        body: formData,
+      });
 
       const data = await res.json();
-      if (!data.success) {
-        throw new Error("Failed to upload image.");
-      }
+      if (!data.success) throw new Error("Failed to upload image.");
 
       const url = data.data.display_url;
       setForm((prev) => ({ ...prev, avatar: url }));
@@ -96,6 +109,9 @@ export default function ProfilePage() {
     setMessage("");
 
     try {
+      if (!form.district) throw new Error("Please select district.");
+      if (!form.upazila) throw new Error("Please select upazila.");
+
       const payload = {
         name: form.name,
         bloodGroup: form.bloodGroup,
@@ -105,6 +121,7 @@ export default function ProfilePage() {
       };
 
       const updated = await updateProfileApi(payload);
+
       setMessage("Profile updated successfully.");
 
       // Update auth context user as well
@@ -160,6 +177,7 @@ export default function ProfilePage() {
               )}
             </div>
           </div>
+
           <div className="flex-1">
             <label className="label">
               <span className="label-text text-xs">Profile picture</span>
@@ -176,7 +194,7 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Name */}
+        {/* Name + Email */}
         <div className="grid md:grid-cols-2 gap-4">
           <div>
             <label className="label">
@@ -192,7 +210,6 @@ export default function ProfilePage() {
             />
           </div>
 
-          {/* Email (read-only from auth user) */}
           <div>
             <label className="label">
               <span className="label-text text-xs">Email (read only)</span>
@@ -206,7 +223,7 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Blood group & location */}
+        {/* Blood + Location */}
         <div className="grid md:grid-cols-3 gap-4">
           <div>
             <label className="label">
@@ -232,38 +249,47 @@ export default function ProfilePage() {
             <label className="label">
               <span className="label-text text-xs">District</span>
             </label>
-            <input
-              type="text"
+            <select
               name="district"
-              className="input input-bordered input-sm w-full"
+              className="select select-bordered select-sm w-full"
               value={form.district}
               onChange={handleChange}
               required
-            />
+            >
+              <option value="">Select District</option>
+              {districtList.map((d) => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>
             <label className="label">
               <span className="label-text text-xs">Upazila</span>
             </label>
-            <input
-              type="text"
+            <select
               name="upazila"
-              className="input input-bordered input-sm w-full"
+              className="select select-bordered select-sm w-full"
               value={form.upazila}
               onChange={handleChange}
               required
-            />
+              disabled={!form.district}
+            >
+              <option value="">Select Upazila</option>
+              {upazilaList.map((u) => (
+                <option key={u} value={u}>
+                  {u}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
-        {/* Save button */}
+        {/* Save */}
         <div className="pt-2">
-          <button
-            type="submit"
-            className="btn btn-primary btn-sm"
-            disabled={saving}
-          >
+          <button type="submit" className="btn btn-primary btn-sm" disabled={saving}>
             {saving ? "Saving…" : "Save Changes"}
           </button>
         </div>

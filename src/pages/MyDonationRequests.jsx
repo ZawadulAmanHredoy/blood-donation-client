@@ -41,9 +41,7 @@ export default function MyDonationRequests() {
 
     try {
       const query = { page, limit };
-      if (statusFilter !== "all") {
-        query.status = statusFilter;
-      }
+      if (statusFilter !== "all") query.status = statusFilter;
 
       const data = await getMyDonationRequestsApi(query);
       setRequests(data.items || []);
@@ -61,9 +59,7 @@ export default function MyDonationRequests() {
   }, [page, statusFilter]);
 
   const handleDelete = async (id) => {
-    const confirm = window.confirm(
-      "Are you sure you want to delete this donation request?"
-    );
+    const confirm = window.confirm("Are you sure you want to delete this donation request?");
     if (!confirm) return;
 
     try {
@@ -90,13 +86,8 @@ export default function MyDonationRequests() {
     setPage(1);
   };
 
-  const handlePrevPage = () => {
-    setPage((prev) => Math.max(1, prev - 1));
-  };
-
-  const handleNextPage = () => {
-    setPage((prev) => Math.min(totalPages, prev + 1));
-  };
+  const handlePrevPage = () => setPage((prev) => Math.max(1, prev - 1));
+  const handleNextPage = () => setPage((prev) => Math.min(totalPages, prev + 1));
 
   return (
     <div className="bg-base-100 shadow-lg rounded-xl p-4 md:p-6">
@@ -152,79 +143,71 @@ export default function MyDonationRequests() {
                 <th className="text-right">Actions</th>
               </tr>
             </thead>
+
             <tbody>
               {requests.map((req, idx) => (
                 <tr key={req._id}>
                   <td>{(page - 1) * limit + idx + 1}</td>
+
                   <td>
                     <div className="flex flex-col">
-                      <span className="font-medium">
-                        {req.recipient?.name || "N/A"}
-                      </span>
-                      <span className="text-xs text-slate-500">
-                        {req.hospitalName}
-                      </span>
+                      <span className="font-medium">{req.recipient?.name || "N/A"}</span>
+                      <span className="text-xs text-slate-500">{req.hospitalName}</span>
                     </div>
                   </td>
+
                   <td>
                     <div className="flex flex-col text-xs">
                       <span>{req.recipient?.district}</span>
-                      <span className="text-slate-500">
-                        {req.recipient?.upazila}
-                      </span>
+                      <span className="text-slate-500">{req.recipient?.upazila}</span>
                     </div>
                   </td>
+
                   <td>
-                    <span className="badge badge-outline">
-                      {req.bloodGroup}
-                    </span>
+                    <span className="badge badge-outline">{req.bloodGroup}</span>
                   </td>
+
                   <td className="text-xs">
                     <div>{req.donationDate}</div>
                     <div className="text-slate-500">{req.donationTime}</div>
                   </td>
+
                   <td>
-                    <span className={statusBadgeClasses(req.status)}>
-                      {req.status}
-                    </span>
+                    <span className={statusBadgeClasses(req.status)}>{req.status}</span>
                   </td>
+
                   <td>
                     <div className="flex flex-wrap justify-end gap-1">
-                      {/* View details */}
                       <button
                         className="btn btn-xs"
-                        onClick={() =>
-                          navigate(`/dashboard/requests/${req._id}`)
-                        }
+                        onClick={() => navigate(`/dashboard/requests/${req._id}`)}
                       >
                         View
                       </button>
 
-                      {/* Future: edit page */}
-                      {/* <button
-                        className="btn btn-xs btn-outline"
-                        onClick={() =>
-                          navigate(`/dashboard/requests/${req._id}/edit`)
-                        }
-                      >
-                        Edit
-                      </button> */}
+                      {/* Edit only when pending (best UX + matches assignment expectation) */}
+                      {req.status === "pending" && (
+                        <button
+                          className="btn btn-xs btn-outline"
+                          onClick={() =>
+                            navigate(`/dashboard/my-donation-requests/${req._id}/edit`)
+                          }
+                        >
+                          Edit
+                        </button>
+                      )}
 
                       {req.status === "inprogress" && (
                         <>
                           <button
                             className="btn btn-xs btn-success"
-                            onClick={() =>
-                              handleStatusChange(req._id, "done")
-                            }
+                            onClick={() => handleStatusChange(req._id, "done")}
                           >
                             Done
                           </button>
                           <button
                             className="btn btn-xs btn-warning"
-                            onClick={() =>
-                              handleStatusChange(req._id, "canceled")
-                            }
+                            onClick={() => handleStatusChange(req._id, "canceled")}
                           >
                             Cancel
                           </button>
@@ -246,16 +229,14 @@ export default function MyDonationRequests() {
 
           {/* Pagination */}
           <div className="flex items-center justify-between mt-4">
-            <button
-              className="btn btn-sm"
-              onClick={handlePrevPage}
-              disabled={page <= 1}
-            >
+            <button className="btn btn-sm" onClick={handlePrevPage} disabled={page <= 1}>
               Previous
             </button>
+
             <span className="text-xs text-slate-500">
               Page {page} of {totalPages}
             </span>
+
             <button
               className="btn btn-sm"
               onClick={handleNextPage}

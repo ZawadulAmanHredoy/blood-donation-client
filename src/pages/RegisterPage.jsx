@@ -1,13 +1,15 @@
 // client/src/pages/RegisterPage.jsx
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { registerApi } from "../api/authApi.js";
+import { DISTRICTS } from "../data/bdLocations.js";
 
 const IMGBB_KEY = import.meta.env.VITE_IMGBB_KEY;
+const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 
 export default function RegisterPage() {
-  const { login } = useAuth();
+  const { applyAuth } = useAuth();
   const navigate = useNavigate();
 
   const [form, setForm] = useState({
@@ -26,11 +28,21 @@ export default function RegisterPage() {
   const [message, setMessage] = useState("");
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
+  const districtList = useMemo(() => Object.keys(DISTRICTS), []);
+  const upazilaList = useMemo(() => {
+    if (!form.district) return [];
+    return DISTRICTS[form.district] || [];
+  }, [form.district]);
+
   const handleChange = (e) => {
-    setForm((prev) => ({
-      ...prev,
-      [e.target.name]: e.target.value,
-    }));
+    const { name, value } = e.target;
+
+    if (name === "district") {
+      setForm((prev) => ({ ...prev, district: value, upazila: "" }));
+      return;
+    }
+
+    setForm((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleAvatarChange = (e) => {
@@ -51,13 +63,10 @@ export default function RegisterPage() {
     const formData = new FormData();
     formData.append("image", avatarFile);
 
-    const res = await fetch(
-      `https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`,
-      {
-        method: "POST",
-        body: formData,
-      }
-    );
+    const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`, {
+      method: "POST",
+      body: formData,
+    });
 
     const data = await res.json();
     setUploadingAvatar(false);
@@ -78,16 +87,22 @@ export default function RegisterPage() {
       return;
     }
 
+    if (!form.district) {
+      setMessage("Please select your district.");
+      return;
+    }
+
+    if (!form.upazila) {
+      setMessage("Please select your upazila.");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      // 1) Upload avatar (optional but recommended)
       let avatarUrl = "";
-      if (avatarFile) {
-        avatarUrl = await uploadAvatarToImgBB();
-      }
+      if (avatarFile) avatarUrl = await uploadAvatarToImgBB();
 
-      // 2) Prepare payload for backend (no confirmPassword field)
       const payload = {
         name: form.name,
         email: form.email,
@@ -98,13 +113,12 @@ export default function RegisterPage() {
         upazila: form.upazila,
       };
 
-      // 3) Call API
-      const data = await registerApi(payload); // /api/auth/register
+      // Server returns { token, user }
+      const data = await registerApi(payload);
 
-      // 4) Auto-login with context (server returns { token, user })
-      login(data);
+      // ✅ correct: apply auth from server response
+      applyAuth(data);
 
-      // 5) Redirect to dashboard
       navigate("/dashboard", { replace: true });
     } catch (err) {
       setMessage(err.message || "Registration failed");
@@ -185,7 +199,7 @@ export default function RegisterPage() {
           </div>
         </div>
 
-        {/* Avatar upload (ImgBB) */}
+        {/* Avatar upload */}
         <div>
           <label className="label">
             <span className="label-text">Avatar (ImgBB upload)</span>
@@ -196,6 +210,7 @@ export default function RegisterPage() {
             className="file-input file-input-bordered w-full"
             onChange={handleAvatarChange}
           />
+
           {avatarPreview && (
             <div className="mt-2 flex items-center gap-3">
               <img
@@ -208,6 +223,7 @@ export default function RegisterPage() {
               </span>
             </div>
           )}
+
           {uploadingAvatar && (
             <p className="text-xs text-slate-500 mt-1">Uploading avatar...</p>
           )}
@@ -224,14 +240,11 @@ export default function RegisterPage() {
             value={form.bloodGroup}
             onChange={handleChange}
           >
-            <option>A+</option>
-            <option>A-</option>
-            <option>B+</option>
-            <option>B-</option>
-            <option>AB+</option>
-            <option>AB-</option>
-            <option>O+</option>
-            <option>O-</option>
+            {BLOOD_GROUPS.map((bg) => (
+              <option key={bg} value={bg}>
+                {bg}
+              </option>
+            ))}
           </select>
         </div>
 
@@ -240,15 +253,20 @@ export default function RegisterPage() {
           <label className="label">
             <span className="label-text">District</span>
           </label>
-          <input
+          <select
             name="district"
-            type="text"
-            className="input input-bordered w-full"
+            className="select select-bordered w-full"
             value={form.district}
             onChange={handleChange}
-            placeholder="Later we will use real select"
             required
-          />
+          >
+            <option value="">Select District</option>
+            {districtList.map((d) => (
+              <option key={d} value={d}>
+                {d}
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* Upazila */}
@@ -256,14 +274,21 @@ export default function RegisterPage() {
           <label className="label">
             <span className="label-text">Upazila</span>
           </label>
-          <input
+          <select
             name="upazila"
-            type="text"
-            className="input input-bordered w-full"
+            className="select select-bordered w-full"
             value={form.upazila}
             onChange={handleChange}
             required
-          />
+            disabled={!form.district}
+          >
+            <option value="">Select Upazila</option>
+            {upazilaList.map((u) => (
+              <option key={u} value={u}>
+                {u}
+              </option>
+            ))}
+          </select>
         </div>
 
         <button

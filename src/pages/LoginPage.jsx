@@ -2,19 +2,15 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext.jsx";
-import { loginApi } from "../api/authApi.js";
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { loginWithCredentials } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
   const from = location.state?.from?.pathname || "/dashboard";
 
-  const [form, setForm] = useState({
-    email: "",
-    password: "",
-  });
-
+  const [form, setForm] = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -28,11 +24,10 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const data = await loginApi(form); // calls /api/auth/login
-      login(data); // Save token + user in context + localStorage
+      await loginWithCredentials(form.email, form.password);
       navigate(from, { replace: true });
     } catch (err) {
-      setMessage(err.message || "Login failed");
+      setMessage(err.message || "Login failed.");
     } finally {
       setLoading(false);
     }
@@ -43,7 +38,7 @@ export default function LoginPage() {
       <h2 className="text-2xl font-bold mb-4 text-center">Login</h2>
 
       {message && (
-        <div className="alert alert-error mb-4">
+        <div className="alert alert-info mb-4">
           <span>{message}</span>
         </div>
       )}
@@ -77,17 +72,13 @@ export default function LoginPage() {
           />
         </div>
 
-        <button
-          type="submit"
-          className="btn btn-primary w-full mt-2"
-          disabled={loading}
-        >
+        <button type="submit" className="btn btn-primary w-full" disabled={loading}>
           {loading ? "Logging in..." : "Login"}
         </button>
       </form>
 
       <p className="mt-4 text-center text-sm">
-        Don&apos;t have an account?{" "}
+        Don’t have an account?{" "}
         <Link to="/register" className="text-red-500 font-semibold">
           Register
         </Link>

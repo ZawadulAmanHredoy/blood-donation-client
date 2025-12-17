@@ -1,118 +1,73 @@
 // client/src/contexts/AuthContext.jsx
 import { createContext, useContext, useEffect, useState } from "react";
+import { loginApi } from "../api/authApi.js";
 
 const AuthContext = createContext(null);
 
-const API_BASE =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
-
-function getStoredAuth() {
-  const token = localStorage.getItem("token");
-  const userJson = localStorage.getItem("user");
-  let user = null;
-  try {
-    if (userJson) user = JSON.parse(userJson);
-  } catch {
-    user = null;
-  }
-  return { token, user };
-}
-
 export function AuthProvider({ children }) {
-  const [{ token, user }, setAuth] = useState(() => getStoredAuth());
-  const [loading, setLoading] = useState(false);
+  const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  // Keep localStorage in sync
-  const setAuthState = (newToken, newUser) => {
-    if (newToken && newUser) {
-      localStorage.setItem("token", newToken);
-      localStorage.setItem("user", JSON.stringify(newUser));
-      setAuth({ token: newToken, user: newUser });
-    } else {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-      setAuth({ token: null, user: null });
+  // Restore from localStorage on app load
+  useEffect(() => {
+    const storedToken = localStorage.getItem("token");
+    const storedUser = localStorage.getItem("user");
+
+    if (storedToken && storedUser) {
+      setToken(storedToken);
+      try {
+        setUser(JSON.parse(storedUser));
+      } catch {
+        setUser(null);
+      }
     }
+
+    setLoading(false);
+  }, []);
+
+  // Apply auth after login/register
+  const applyAuth = (data) => {
+    if (!data?.token || !data?.user) {
+      throw new Error("Invalid auth response from server.");
+    }
+
+    setToken(data.token);
+    setUser(data.user);
+
+    localStorage.setItem("token", data.token);
+    localStorage.setItem("user", JSON.stringify(data.user));
   };
 
-  const login = async (email, password) => {
-    setLoading(true);
-    try {
-      const res = await fetch(`${API_BASE}/api/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.message || "Failed to login");
-      }
-
-      const { token: t, user: u } = data;
-      setAuthState(t, u);
-      return { user: u };
-    } catch (err) {
-      throw err;
-    } finally {
-      setLoading(false);
+  // Login using email/password (Login page)
+  const loginWithCredentials = async (email, password) => {
+    if (!email || !password) {
+      throw new Error("Email and password are required.");
     }
-  };
-
-  const register = async (payload) => {
-    setLoading(true);
-    try {
-      const res = await fetch(`${API_BASE}/api/auth/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.message || "Failed to register");
-      }
-
-      const { token: t, user: u } = data;
-      setAuthState(t, u);
-      return { user: u };
-    } catch (err) {
-      throw err;
-    } finally {
-      setLoading(false);
-    }
+    const data = await loginApi({ email, password });
+    applyAuth(data);
+    return data;
   };
 
   const logout = () => {
-    setAuthState(null, null);
+    setUser(null);
+    setToken(null);
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
   };
 
   const value = {
     user,
     token,
     loading,
-    login,
-    register,
+    isAuthenticated: !!token,
+    applyAuth,
+    loginWithCredentials,
     logout,
-    setUser: (updater) => {
-      // allow updating user from profile page
-      setAuth((prev) => {
-        const currentUser =
-          typeof updater === "function" ? updater(prev.user) : updater;
-        if (currentUser) {
-          localStorage.setItem("user", JSON.stringify(currentUser));
-          return { ...prev, user: currentUser };
-        } else {
-          localStorage.removeItem("user");
-          return { ...prev, user: null };
-        }
-      });
-    },
+    setUser,
   };
 
-  return (
-    <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

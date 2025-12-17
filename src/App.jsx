@@ -11,6 +11,8 @@ import PrivateRoute from "./routes/PrivateRoute.jsx";
 import CreateDonationRequest from "./pages/CreateDonationRequest.jsx";
 import MyDonationRequests from "./pages/MyDonationRequests.jsx";
 import DonationRequestDetails from "./pages/DonationRequestDetails.jsx";
+import EditDonationRequest from "./pages/EditDonationRequest.jsx";
+
 import SearchDonors from "./pages/SearchDonors.jsx";
 import PendingRequestsPublic from "./pages/PendingRequestsPublic.jsx";
 import AdminUsers from "./pages/AdminUsers.jsx";
@@ -51,14 +53,13 @@ function App() {
           <Route path="funding" element={<FundingPage />} />
 
           {/* Donor/common */}
-          <Route
-            path="create-donation-request"
-            element={<CreateDonationRequest />}
-          />
-          <Route
-            path="my-donation-requests"
-            element={<MyDonationRequests />}
-          />
+          <Route path="create-donation-request" element={<CreateDonationRequest />} />
+          <Route path="my-donation-requests" element={<MyDonationRequests />} />
+
+          {/* NEW: Edit request */}
+          <Route path="my-donation-requests/:id/edit" element={<EditDonationRequest />} />
+
+          {/* Details */}
           <Route path="requests/:id" element={<DonationRequestDetails />} />
 
           {/* Volunteer */}
