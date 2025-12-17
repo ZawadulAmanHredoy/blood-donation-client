@@ -23,10 +23,9 @@ function statusBadgeClasses(status) {
 }
 
 export default function VolunteerRequests() {
-  const navigate = useNavigate();
   const { user } = useAuth();
+  const navigate = useNavigate();
 
-  // Frontend guard: only volunteers can see this page
   if (user?.role !== "volunteer") {
     return (
       <div className="bg-base-100 rounded-xl p-6 shadow text-center text-red-500 font-semibold">
@@ -40,13 +39,23 @@ export default function VolunteerRequests() {
   const [loading, setLoading] = useState(true);
   const [actionLoadingId, setActionLoadingId] = useState(null);
 
-  const loadRequests = async () => {
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+
+  const loadRequests = async (targetPage = page) => {
     setLoading(true);
     setMessage("");
 
     try {
-      const data = await getVolunteerRequestsApi({});
-      setRequests(Array.isArray(data) ? data : data.items || []);
+      const data = await getVolunteerRequestsApi({ page: targetPage, limit });
+      const items = Array.isArray(data) ? data : data.items || [];
+      const tp = !Array.isArray(data) ? data.totalPages || 1 : 1;
+
+      setRequests(items);
+      setTotalPages(tp);
+
+      if (items.length === 0) setMessage("No requests assigned to you yet.");
     } catch (err) {
       setMessage(err.message || "Failed to load requests.");
     } finally {
@@ -55,20 +64,18 @@ export default function VolunteerRequests() {
   };
 
   useEffect(() => {
-    loadRequests();
-  }, []);
+    loadRequests(page);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
 
-  const handleStatusChange = async (id, newStatus) => {
-    if (!window.confirm(`Are you sure you want to mark as "${newStatus}"?`)) {
-      return;
-    }
+  const handleStatus = async (id, newStatus) => {
     setActionLoadingId(id);
     setMessage("");
 
     try {
       await changeDonationStatusApi(id, newStatus);
       setMessage("Status updated.");
-      await loadRequests();
+      await loadRequests(page);
     } catch (err) {
       setMessage(err.message || "Failed to update status.");
     } finally {
@@ -76,123 +83,94 @@ export default function VolunteerRequests() {
     }
   };
 
+  const handlePrev = () => setPage((p) => Math.max(1, p - 1));
+  const handleNext = () => setPage((p) => Math.min(totalPages, p + 1));
+
   return (
-    <div className="bg-base-100 rounded-xl p-6 shadow">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h2 className="text-xl font-bold">My Assigned Requests</h2>
-          <p className="text-xs text-slate-500">
-            These requests are assigned to you as a volunteer/donor.
-          </p>
+    <div className="bg-base-100 shadow-lg rounded-xl p-4 md:p-6 space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold">Volunteer Requests</h2>
+        <div className="text-sm text-slate-600">
+          Page <b>{page}</b> / <b>{totalPages}</b>
         </div>
       </div>
 
-      {message && (
-        <div className="alert alert-info mb-4">
-          <span>{message}</span>
-        </div>
-      )}
+      {message && <div className="alert alert-info">{message}</div>}
 
       {loading ? (
         <div className="flex justify-center py-10">
           <span className="loading loading-spinner loading-lg" />
         </div>
-      ) : requests.length === 0 ? (
-        <p className="text-center text-sm text-slate-500 py-4">
-          No assigned requests found.
-        </p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="table table-sm md:table-md">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Recipient</th>
-                <th>Blood</th>
-                <th>Location</th>
-                <th>Date &amp; Time</th>
-                <th>Status</th>
-                <th className="text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {requests.map((req, idx) => (
-                <tr key={req._id}>
-                  <td>{idx + 1}</td>
-                  <td>
-                    <div className="flex flex-col">
-                      <span className="font-semibold">
-                        {req.recipient?.name}
+        <>
+          <div className="overflow-x-auto">
+            <table className="table table-zebra">
+              <thead>
+                <tr>
+                  <th>Recipient</th>
+                  <th>District</th>
+                  <th>Upazila</th>
+                  <th>Blood</th>
+                  <th>Status</th>
+                  <th className="text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {requests.map((r) => (
+                  <tr key={r._id}>
+                    <td>{r.recipientName}</td>
+                    <td>{r.recipientDistrict}</td>
+                    <td>{r.recipientUpazila}</td>
+                    <td>{r.bloodGroup}</td>
+                    <td>
+                      <span className={statusBadgeClasses(r.status)}>
+                        {r.status}
                       </span>
-                      <span className="text-xs text-slate-500">
-                        {req.hospitalName}
-                      </span>
-                    </div>
-                  </td>
-                  <td>
-                    <span className="badge badge-outline">
-                      {req.bloodGroup}
-                    </span>
-                  </td>
-                  <td className="text-xs">
-                    <div>{req.recipient?.district}</div>
-                    <div className="text-slate-500">
-                      {req.recipient?.upazila}
-                    </div>
-                  </td>
-                  <td className="text-xs">
-                    <div>{req.donationDate}</div>
-                    <div className="text-slate-500">{req.donationTime}</div>
-                  </td>
-                  <td>
-                    <span className={statusBadgeClasses(req.status)}>
-                      {req.status}
-                    </span>
-                  </td>
-                  <td>
-                    <div className="flex flex-wrap justify-end gap-1">
+                    </td>
+                    <td className="text-right space-x-2">
                       <button
                         className="btn btn-xs"
-                        onClick={() =>
-                          navigate(`/dashboard/requests/${req._id}`)
-                        }
+                        onClick={() => navigate(`/dashboard/requests/${r._id}`)}
                       >
-                        View
+                        Details
                       </button>
 
-                      {req.status === "inprogress" && (
-                        <>
-                          <button
-                            className="btn btn-xs btn-success"
-                            disabled={actionLoadingId === req._id}
-                            onClick={() =>
-                              handleStatusChange(req._id, "done")
-                            }
-                          >
-                            {actionLoadingId === req._id
-                              ? "Saving..."
-                              : "Done"}
-                          </button>
-                          <button
-                            className="btn btn-xs btn-warning"
-                            disabled={actionLoadingId === req._id}
-                            onClick={() =>
-                              handleStatusChange(req._id, "canceled")
-                            }
-                          >
-                            {actionLoadingId === req._id
-                              ? "Saving..."
-                              : "Cancel"}
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                      <select
+                        className="select select-bordered select-xs"
+                        value={r.status}
+                        disabled={actionLoadingId === r._id}
+                        onChange={(e) => handleStatus(r._id, e.target.value)}
+                      >
+                        <option value="pending">pending</option>
+                        <option value="inprogress">inprogress</option>
+                        <option value="done">done</option>
+                        <option value="canceled">canceled</option>
+                      </select>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination buttons */}
+          <div className="flex items-center justify-center gap-3 pt-2">
+            <button
+              className="btn btn-outline btn-sm"
+              onClick={handlePrev}
+              disabled={page <= 1}
+            >
+              Prev
+            </button>
+            <button
+              className="btn btn-outline btn-sm"
+              onClick={handleNext}
+              disabled={page >= totalPages}
+            >
+              Next
+            </button>
+          </div>
+        </>
       )}
     </div>
   );
