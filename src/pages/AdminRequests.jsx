@@ -29,7 +29,6 @@ export default function AdminRequests() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  // Access control
   if (user?.role !== "admin") {
     return (
       <div className="p-6 text-center text-red-500 font-semibold">
@@ -43,16 +42,26 @@ export default function AdminRequests() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
 
-  const loadRequests = async () => {
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+
+  const loadRequests = async (targetPage = page) => {
     setLoading(true);
     setMessage("");
 
     try {
-      const query = {};
+      const query = { page: targetPage, limit };
       if (statusFilter !== "all") query.status = statusFilter;
 
       const data = await getAllDonationRequestsApi(query);
-      setRequests(Array.isArray(data) ? data : data.items || []);
+      const items = Array.isArray(data) ? data : data.items || [];
+      const tp = !Array.isArray(data) ? data.totalPages || 1 : 1;
+
+      setRequests(items);
+      setTotalPages(tp);
+
+      if (items.length === 0) setMessage("No requests found.");
     } catch (err) {
       setMessage(err.message || "Failed to load requests.");
     } finally {
@@ -61,16 +70,23 @@ export default function AdminRequests() {
   };
 
   useEffect(() => {
-    loadRequests();
+    setPage(1);
+    loadRequests(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter]);
 
+  useEffect(() => {
+    loadRequests(page);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
+
   const handleDelete = async (id) => {
-    if (!window.confirm("Delete this request permanently?")) return;
+    if (!window.confirm("Delete this request?")) return;
 
     try {
       await deleteDonationRequestApi(id);
       setMessage("Request deleted successfully.");
-      loadRequests();
+      loadRequests(page);
     } catch (err) {
       setMessage(err.message || "Failed to delete.");
     }
@@ -82,19 +98,22 @@ export default function AdminRequests() {
     try {
       await changeDonationStatusApi(id, newStatus);
       setMessage("Status updated.");
-      loadRequests();
+      loadRequests(page);
     } catch (err) {
-      setMessage(err.message);
+      setMessage(err.message || "Failed to update status.");
     }
   };
 
+  const handlePrev = () => setPage((p) => Math.max(1, p - 1));
+  const handleNext = () => setPage((p) => Math.min(totalPages, p + 1));
+
   return (
-    <div className="bg-base-100 p-6 rounded-xl shadow">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
-        <h2 className="text-xl font-bold">Manage Donation Requests</h2>
+    <div className="bg-base-100 shadow-lg rounded-xl p-4 md:p-6 space-y-4">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <h2 className="text-xl font-bold">All Donation Requests (Admin)</h2>
 
         <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-600">Filter:</span>
+          <span className="text-sm text-slate-600">Status:</span>
           <select
             className="select select-bordered select-sm"
             value={statusFilter}
@@ -102,129 +121,100 @@ export default function AdminRequests() {
           >
             {STATUS_OPTIONS.map((s) => (
               <option key={s} value={s}>
-                {s === "all" ? "All" : s}
+                {s}
               </option>
             ))}
           </select>
+
+          <span className="text-sm text-slate-600 ml-2">
+            Page <b>{page}</b>/<b>{totalPages}</b>
+          </span>
         </div>
       </div>
 
-      {message && (
-        <div className="alert alert-info mb-4">
-          <span>{message}</span>
-        </div>
-      )}
+      {message && <div className="alert alert-info">{message}</div>}
 
       {loading ? (
         <div className="flex justify-center py-10">
           <span className="loading loading-spinner loading-lg" />
         </div>
-      ) : requests.length === 0 ? (
-        <p className="text-center text-sm text-slate-500">No requests found.</p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="table table-md">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Recipient</th>
-                <th>Blood</th>
-                <th>Location</th>
-                <th>Date & Time</th>
-                <th>Status</th>
-                <th>Donor</th>
-                <th className="text-right">Actions</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {requests.map((req, idx) => (
-                <tr key={req._id}>
-                  <td>{idx + 1}</td>
-                  <td>
-                    <div className="flex flex-col">
-                      <span className="font-semibold">
-                        {req.recipient?.name}
+        <>
+          <div className="overflow-x-auto">
+            <table className="table table-zebra">
+              <thead>
+                <tr>
+                  <th>Recipient</th>
+                  <th>District</th>
+                  <th>Upazila</th>
+                  <th>Blood</th>
+                  <th>Status</th>
+                  <th className="text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {requests.map((r) => (
+                  <tr key={r._id}>
+                    <td>{r.recipientName}</td>
+                    <td>{r.recipientDistrict}</td>
+                    <td>{r.recipientUpazila}</td>
+                    <td>{r.bloodGroup}</td>
+                    <td>
+                      <span className={statusBadgeClasses(r.status)}>
+                        {r.status}
                       </span>
-                      <span className="text-xs text-slate-500">
-                        {req.hospitalName}
-                      </span>
-                    </div>
-                  </td>
-
-                  <td>
-                    <span className="badge badge-outline">
-                      {req.bloodGroup}
-                    </span>
-                  </td>
-
-                  <td className="text-xs">
-                    {req.recipient?.district},{" "}
-                    <span className="text-slate-500">
-                      {req.recipient?.upazila}
-                    </span>
-                  </td>
-
-                  <td className="text-xs">
-                    {req.donationDate}
-                    <br />
-                    <span className="text-slate-500">{req.donationTime}</span>
-                  </td>
-
-                  <td>
-                    <span className={statusBadgeClasses(req.status)}>
-                      {req.status}
-                    </span>
-                  </td>
-
-                  <td className="text-xs">
-                    {req.donor?.name || (
-                      <span className="text-slate-400">— none —</span>
-                    )}
-                  </td>
-
-                  <td>
-                    <div className="flex flex-wrap justify-end gap-1">
+                    </td>
+                    <td className="text-right space-x-2">
                       <button
                         className="btn btn-xs"
-                        onClick={() =>
-                          navigate(`/dashboard/requests/${req._id}`)
-                        }
+                        onClick={() => navigate(`/dashboard/requests/${r._id}`)}
                       >
-                        View
+                        Details
                       </button>
 
-                      {req.status === "inprogress" && (
-                        <>
-                          <button
-                            className="btn btn-xs btn-success"
-                            onClick={() => handleStatus(req._id, "done")}
-                          >
-                            Done
-                          </button>
-
-                          <button
-                            className="btn btn-xs btn-warning"
-                            onClick={() => handleStatus(req._id, "canceled")}
-                          >
-                            Cancel
-                          </button>
-                        </>
-                      )}
+                      <select
+                        className="select select-bordered select-xs"
+                        value={r.status}
+                        onChange={(e) => handleStatus(r._id, e.target.value)}
+                      >
+                        {STATUS_OPTIONS.filter((s) => s !== "all").map((s) => (
+                          <option key={s} value={s}>
+                            {s}
+                          </option>
+                        ))}
+                      </select>
 
                       <button
-                        className="btn btn-xs btn-error btn-outline"
-                        onClick={() => handleDelete(req._id)}
+                        className="btn btn-xs btn-error"
+                        onClick={() => handleDelete(r._id)}
                       >
                         Delete
                       </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination buttons */}
+          <div className="flex items-center justify-center gap-3 pt-2">
+            <button
+              className="btn btn-outline btn-sm"
+              onClick={handlePrev}
+              disabled={page <= 1}
+            >
+              Prev
+            </button>
+            <button
+              className="btn btn-outline btn-sm"
+              onClick={handleNext}
+              disabled={page >= totalPages}
+            >
+              Next
+            </button>
+          </div>
+        </>
       )}
     </div>
   );
