@@ -1,125 +1,91 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { getDashboardSummaryApi } from "../api/statsApi.js";
+import { getRequestStatsApi } from "../api/statsApi.js";
 
-function DashboardStatCard({ label, value, subtitle }) {
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  ResponsiveContainer,
+} from "recharts";
+
+export default function DashboardHome() {
+  const { user } = useAuth();
+  const isPrivileged = user?.role === "admin" || user?.role === "volunteer";
+
+  const [summary, setSummary] = useState(null);
+  const [stats, setStats] = useState(null);
+
+  useEffect(() => {
+    if (!isPrivileged) return;
+
+    getDashboardSummaryApi().then(setSummary);
+    getRequestStatsApi().then(setStats);
+  }, [isPrivileged]);
+
+  if (!isPrivileged) {
+    return <p className="text-slate-400">Welcome to your dashboard.</p>;
+  }
+
   return (
-    <div className="rounded-xl bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700 p-5 shadow-md">
-      <p className="text-xs uppercase tracking-wide text-slate-400">
-        {label}
-      </p>
+    <div className="space-y-8">
+      <h1 className="text-2xl font-bold text-white">Admin Dashboard</h1>
 
-      <p className="mt-2 text-3xl font-extrabold text-white">
-        {value}
-      </p>
+      {/* SUMMARY */}
+      <div className="grid md:grid-cols-3 gap-4">
+        <Stat label="Total Users" value={summary?.totalUsers} />
+        <Stat label="Total Funds" value={summary?.totalFunds} />
+        <Stat label="Pending Requests" value={summary?.requests?.pending} />
+      </div>
 
-      {subtitle && (
-        <p className="mt-1 text-xs text-slate-400">
-          {subtitle}
-        </p>
+      {/* CHARTS (MANDATORY) */}
+      {stats && (
+        <>
+          <ChartBox title="Daily Donation Requests">
+            <LineChart data={stats.daily}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="label" />
+              <YAxis />
+              <Tooltip />
+              <Line type="monotone" dataKey="value" stroke="#ef4444" />
+            </LineChart>
+          </ChartBox>
+
+          <ChartBox title="Monthly Donation Requests">
+            <LineChart data={stats.monthly}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="label" />
+              <YAxis />
+              <Tooltip />
+              <Line type="monotone" dataKey="value" stroke="#22c55e" />
+            </LineChart>
+          </ChartBox>
+        </>
       )}
     </div>
   );
 }
 
-export default function DashboardHome() {
-  const { user } = useAuth();
-  const role = user?.role;
-
-  const [summary, setSummary] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  const isAdminOrVolunteer = useMemo(
-    () => role === "admin" || role === "volunteer",
-    [role]
-  );
-
-  useEffect(() => {
-    if (!isAdminOrVolunteer) return;
-
-    const loadStats = async () => {
-      setLoading(true);
-      setError("");
-      try {
-        const data = await getDashboardSummaryApi();
-        setSummary(data);
-      } catch (err) {
-        setError(err.message || "Failed to load dashboard stats");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadStats();
-  }, [isAdminOrVolunteer]);
-
+function Stat({ label, value }) {
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-white">
-          Welcome back, {user?.name} 👋
-        </h1>
-        <p className="text-sm text-slate-400">
-          Dashboard overview of the blood donation system
-        </p>
-      </div>
+    <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
+      <p className="text-sm text-slate-400">{label}</p>
+      <p className="text-3xl font-bold text-white">{value ?? 0}</p>
+    </div>
+  );
+}
 
-      {/* Error */}
-      {error && (
-        <div className="bg-red-600 text-white px-4 py-2 rounded">
-          {error}
-        </div>
-      )}
-
-      {/* Admin / Volunteer Stats */}
-      {isAdminOrVolunteer && (
-        <>
-          <div className="grid gap-4 md:grid-cols-3">
-            <DashboardStatCard
-              label="Total Users"
-              value={loading ? "…" : summary?.totalUsers ?? 0}
-              subtitle="Registered users"
-            />
-
-            <DashboardStatCard
-              label="Total Funds (BDT)"
-              value={loading ? "…" : summary?.totalFunds ?? 0}
-              subtitle="All contributions"
-            />
-
-            <DashboardStatCard
-              label="Pending Requests"
-              value={loading ? "…" : summary?.requests?.pending ?? 0}
-              subtitle="Awaiting donors"
-            />
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <DashboardStatCard
-              label="In Progress Requests"
-              value={loading ? "…" : summary?.requests?.inprogress ?? 0}
-              subtitle="Currently active"
-            />
-
-            <DashboardStatCard
-              label="Completed Requests"
-              value={loading ? "…" : summary?.requests?.done ?? 0}
-              subtitle="Successfully completed"
-            />
-          </div>
-        </>
-      )}
-
-      {/* Donor fallback */}
-      {!isAdminOrVolunteer && (
-        <div className="grid gap-4 md:grid-cols-3">
-          <DashboardStatCard label="My Requests" value="—" />
-          <DashboardStatCard label="Completed" value="—" />
-          <DashboardStatCard label="Pending" value="—" />
-        </div>
-      )}
+function ChartBox({ title, children }) {
+  return (
+    <div className="bg-slate-900 p-5 rounded-xl border border-slate-700">
+      <h2 className="text-lg font-semibold text-white mb-4">{title}</h2>
+      <ResponsiveContainer width="100%" height={300}>
+        {children}
+      </ResponsiveContainer>
     </div>
   );
 }
