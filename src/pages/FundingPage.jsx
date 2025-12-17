@@ -1,82 +1,50 @@
 // client/src/pages/FundingPage.jsx
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { getFundingListApi, dummyPayApi } from "../api/fundingApi.js";
 import { useAuth } from "../contexts/AuthContext.jsx";
-import {
-  createCheckoutSessionApi,
-  getFundingsApi,
-  verifyCheckoutSessionApi,
-} from "../api/fundingApi.js";
+
+function formatDate(d) {
+  if (!d) return "-";
+  const date = new Date(d);
+  if (Number.isNaN(date.getTime())) return d;
+  return date.toLocaleString();
+}
 
 export default function FundingPage() {
   const { user } = useAuth();
-  const [searchParams, setSearchParams] = useSearchParams();
+
+  const [funds, setFunds] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const [amount, setAmount] = useState(1000);
-  const [funds, setFunds] = useState([]);
-  const [loadingFunds, setLoadingFunds] = useState(true);
   const [paying, setPaying] = useState(false);
-  const [message, setMessage] = useState("");
+
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   const totalFunds = useMemo(() => {
     return funds.reduce((sum, f) => sum + (Number(f.amount) || 0), 0);
   }, [funds]);
 
   const loadFunds = async () => {
-    setLoadingFunds(true);
+    setLoading(true);
     try {
-      const data = await getFundingsApi();
+      const data = await getFundingListApi();
       setFunds(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setError(err.message || "Failed to load funds.");
     } finally {
-      setLoadingFunds(false);
+      setLoading(false);
     }
   };
 
-  // 1) Load funding list
   useEffect(() => {
     loadFunds();
   }, []);
 
-  // 2) If redirected back from Stripe success, verify and save record
-  useEffect(() => {
-    const success = searchParams.get("success");
-    const sessionId = searchParams.get("session_id");
-    const canceled = searchParams.get("canceled");
-
-    const run = async () => {
-      setError("");
-      setMessage("");
-
-      if (canceled) {
-        setMessage("Payment canceled.");
-        // clean URL
-        setSearchParams({});
-        return;
-      }
-
-      if (success && sessionId) {
-        try {
-          setMessage("Verifying payment…");
-          await verifyCheckoutSessionApi({ sessionId });
-          setMessage("Payment successful ✅ Funding recorded.");
-          await loadFunds();
-        } catch (err) {
-          setError(err.message || "Failed to verify payment.");
-        } finally {
-          // clean URL
-          setSearchParams({});
-        }
-      }
-    };
-
-    run();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const handlePay = async () => {
+  const handleDummyPay = async () => {
     setError("");
-    setMessage("");
+    setSuccess("");
 
     const numericAmount = Number(amount);
     if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
@@ -86,13 +54,12 @@ export default function FundingPage() {
 
     setPaying(true);
     try {
-      const res = await createCheckoutSessionApi({ amount: numericAmount });
-      if (!res?.url) throw new Error("Failed to get Stripe checkout URL.");
-
-      // Redirect to Stripe hosted checkout
-      window.location.href = res.url;
+      await dummyPayApi(numericAmount);
+      setSuccess("Dummy payment successful ✅");
+      await loadFunds();
     } catch (err) {
-      setError(err.message || "Failed to start checkout.");
+      setError(err.message || "Dummy payment failed.");
+    } finally {
       setPaying(false);
     }
   };
@@ -108,8 +75,8 @@ export default function FundingPage() {
       </div>
 
       <p className="text-sm text-slate-500 mb-4">
-        This page shows all funds contributed to the organization. You can also
-        give a fund using Stripe Checkout.
+        Dummy funding system (no Stripe, no card). Clicking the button will save
+        a funding record in the database.
       </p>
 
       {error && (
@@ -117,9 +84,10 @@ export default function FundingPage() {
           <span>{error}</span>
         </div>
       )}
-      {message && (
+
+      {success && (
         <div className="alert alert-success mb-4">
-          <span>{message}</span>
+          <span>{success}</span>
         </div>
       )}
 
@@ -140,13 +108,17 @@ export default function FundingPage() {
           </p>
         </div>
 
-        <button className="btn btn-primary" onClick={handlePay} disabled={paying}>
-          {paying ? "Redirecting..." : "Pay with Stripe"}
+        <button
+          className="btn btn-primary"
+          onClick={handleDummyPay}
+          disabled={paying}
+        >
+          {paying ? "Processing..." : "Confirm Dummy Payment"}
         </button>
       </div>
 
       <div className="mt-6">
-        {loadingFunds ? (
+        {loading ? (
           <div className="flex justify-center py-8">
             <span className="loading loading-spinner loading-lg" />
           </div>
@@ -171,11 +143,11 @@ export default function FundingPage() {
                 {funds.map((f, idx) => (
                   <tr key={f._id}>
                     <td>{idx + 1}</td>
-                    <td>{f.name || f.user?.name || "N/A"}</td>
-                    <td>{f.email || f.user?.email || "N/A"}</td>
+                    <td>{f.user?.name || f.name || "N/A"}</td>
+                    <td>{f.user?.email || f.email || "N/A"}</td>
                     <td>{f.amount}</td>
-                    <td>{f.status}</td>
-                    <td>{new Date(f.createdAt).toLocaleString()}</td>
+                    <td>{f.status || "success"}</td>
+                    <td>{formatDate(f.createdAt)}</td>
                   </tr>
                 ))}
               </tbody>

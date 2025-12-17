@@ -1,16 +1,15 @@
 // client/src/api/fundingApi.js
 import { apiRequest } from "./apiClient.js";
 
-export const getFundingsApi = () => apiRequest("/api/funding");
+// GET /api/funding  → list all funding entries
+export function getFundingListApi() {
+  return apiRequest("/api/funding");
+}
 
-export const createCheckoutSessionApi = (payload) =>
-  apiRequest("/api/funding/create-checkout-session", {
+// POST /api/funding/dummy-pay → create a dummy funding entry (no Stripe)
+export function dummyPayApi(amount) {
+  return apiRequest("/api/funding/dummy-pay", {
     method: "POST",
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ amount }),
   });
-
-export const verifyCheckoutSessionApi = (payload) =>
-  apiRequest("/api/funding/verify-checkout-session", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+}
