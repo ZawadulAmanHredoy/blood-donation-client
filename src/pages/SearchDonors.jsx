@@ -12,24 +12,31 @@ export default function SearchDonors() {
   });
 
   const [donors, setDonors] = useState([]);
-  const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const loadDonors = async () => {
+  const [page, setPage] = useState(1);
+  const [limit] = useState(8);
+  const [totalPages, setTotalPages] = useState(1);
+
+  const loadDonors = async (targetPage = page) => {
     setLoading(true);
     setMessage("");
 
     try {
-      const cleanFilters = {};
-      if (filters.bloodGroup) cleanFilters.bloodGroup = filters.bloodGroup;
-      if (filters.district) cleanFilters.district = filters.district;
-      if (filters.upazila) cleanFilters.upazila = filters.upazila;
+      const data = await searchDonorsApi({
+        ...filters,
+        page: targetPage,
+        limit,
+      });
 
-      const data = await searchDonorsApi(cleanFilters);
-      setDonors(data || []);
-      if (!data || data.length === 0) {
-        setMessage("No donors found with the selected filters.");
-      }
+      const items = Array.isArray(data) ? data : data.items || [];
+      const tp = !Array.isArray(data) ? data.totalPages || 1 : 1;
+
+      setDonors(items);
+      setTotalPages(tp);
+
+      if (items.length === 0) setMessage("No donors found.");
     } catch (err) {
       setMessage(err.message || "Failed to load donors.");
     } finally {
@@ -37,195 +44,147 @@ export default function SearchDonors() {
     }
   };
 
-  // Load all donors on first mount
   useEffect(() => {
-    loadDonors();
+    loadDonors(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFilters((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFilters((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    loadDonors();
+    setPage(1);
+    loadDonors(1);
   };
 
   const handleReset = () => {
-    setFilters({
-      bloodGroup: "",
-      district: "",
-      upazila: "",
-    });
-    // reload all donors
-    setTimeout(loadDonors, 0);
+    const reset = { bloodGroup: "", district: "", upazila: "" };
+    setFilters(reset);
+    setPage(1);
+    loadDonors(1);
+  };
+
+  const handlePrev = () => {
+    const next = Math.max(1, page - 1);
+    setPage(next);
+    loadDonors(next);
+  };
+
+  const handleNext = () => {
+    const next = Math.min(totalPages, page + 1);
+    setPage(next);
+    loadDonors(next);
   };
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">Search Donors</h1>
-          <p className="text-sm text-slate-600 max-w-xl">
-            Filter donors by blood group, district and upazila. Only active
-            donors are shown.
-          </p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold">Search Donors</h1>
+        <p className="text-sm text-slate-600">
+          Filter donors by blood group, district, and upazila.
+        </p>
       </div>
 
-      {/* Filter form */}
       <form
         onSubmit={handleSubmit}
-        className="bg-base-100 shadow-md rounded-xl p-4 grid md:grid-cols-4 gap-3"
+        className="bg-base-100 rounded-xl shadow p-4 md:p-6 grid md:grid-cols-4 gap-3"
       >
-        <div>
-          <label className="label">
-            <span className="label-text text-xs">Blood Group</span>
-          </label>
-          <select
-            name="bloodGroup"
-            className="select select-bordered select-sm w-full"
-            value={filters.bloodGroup}
-            onChange={handleChange}
-          >
-            <option value="">Any</option>
-            {BLOOD_GROUPS.map((bg) => (
-              <option key={bg} value={bg}>
-                {bg}
-              </option>
-            ))}
-          </select>
-        </div>
+        <select
+          name="bloodGroup"
+          value={filters.bloodGroup}
+          onChange={handleChange}
+          className="select select-bordered w-full"
+        >
+          <option value="">All Blood Groups</option>
+          {BLOOD_GROUPS.map((bg) => (
+            <option key={bg} value={bg}>
+              {bg}
+            </option>
+          ))}
+        </select>
 
-        <div>
-          <label className="label">
-            <span className="label-text text-xs">District</span>
-          </label>
-          <input
-            type="text"
-            name="district"
-            className="input input-bordered input-sm w-full"
-            value={filters.district}
-            onChange={handleChange}
-            placeholder="e.g. Dhaka"
-          />
-        </div>
+        <input
+          name="district"
+          value={filters.district}
+          onChange={handleChange}
+          placeholder="District"
+          className="input input-bordered w-full"
+        />
 
-        <div>
-          <label className="label">
-            <span className="label-text text-xs">Upazila</span>
-          </label>
-          <input
-            type="text"
-            name="upazila"
-            className="input input-bordered input-sm w-full"
-            value={filters.upazila}
-            onChange={handleChange}
-            placeholder="e.g. Dhanmondi"
-          />
-        </div>
+        <input
+          name="upazila"
+          value={filters.upazila}
+          onChange={handleChange}
+          placeholder="Upazila"
+          className="input input-bordered w-full"
+        />
 
-        <div className="flex items-end gap-2">
-          <button
-            type="submit"
-            className="btn btn-sm btn-primary flex-1"
-            disabled={loading}
-          >
-            {loading ? "Searching..." : "Search"}
+        <div className="flex gap-2">
+          <button className="btn btn-primary flex-1" type="submit">
+            Search
           </button>
-          <button
-            type="button"
-            className="btn btn-sm btn-ghost"
-            onClick={handleReset}
-            disabled={loading}
-          >
+          <button className="btn btn-ghost" type="button" onClick={handleReset}>
             Reset
           </button>
         </div>
       </form>
 
-      {/* Results */}
-      <div className="bg-base-100 shadow-md rounded-xl p-4">
-        {message && (
-          <div className="alert alert-info mb-3">
-            <span>{message}</span>
-          </div>
-        )}
+      {message && <div className="alert alert-error">{message}</div>}
 
-        {loading ? (
-          <div className="flex justify-center items-center py-10">
-            <span className="loading loading-spinner loading-lg" />
+      {loading ? (
+        <div className="flex justify-center py-10">
+          <span className="loading loading-spinner loading-lg" />
+        </div>
+      ) : (
+        <>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {donors.map((d) => (
+              <div
+                key={d._id}
+                className="bg-base-100 rounded-xl shadow p-4 border"
+              >
+                <p className="font-bold text-lg">{d.name}</p>
+                <p className="text-sm text-slate-600">{d.email}</p>
+                <div className="mt-2 text-sm">
+                  <p>
+                    <b>Blood:</b> {d.bloodGroup || "N/A"}
+                  </p>
+                  <p>
+                    <b>District:</b> {d.district || "N/A"}
+                  </p>
+                  <p>
+                    <b>Upazila:</b> {d.upazila || "N/A"}
+                  </p>
+                </div>
+              </div>
+            ))}
           </div>
-        ) : donors.length === 0 ? (
-          <p className="text-sm text-slate-500 text-center py-4">
-            No donors to show.
-          </p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="table table-sm md:table-md">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Donor</th>
-                  <th>Blood</th>
-                  <th>Location</th>
-                  <th>Contact</th>
-                  <th>Role</th>
-                </tr>
-              </thead>
-              <tbody>
-                {donors.map((d, idx) => (
-                  <tr key={d._id || idx}>
-                    <td>{idx + 1}</td>
-                    <td>
-                      <div className="flex items-center gap-2">
-                        {d.avatar && (
-                          <img
-                            src={d.avatar}
-                            alt={d.name}
-                            className="w-8 h-8 rounded-full object-cover border"
-                          />
-                        )}
-                        <div className="flex flex-col">
-                          <span className="font-medium text-sm">
-                            {d.name}
-                          </span>
-                          <span className="text-xs text-slate-500">
-                            {d.email}
-                          </span>
-                        </div>
-                      </div>
-                    </td>
-                    <td>
-                      <span className="badge badge-outline">
-                        {d.bloodGroup}
-                      </span>
-                    </td>
-                    <td className="text-xs">
-                      <div>{d.district}</div>
-                      <div className="text-slate-500">{d.upazila}</div>
-                    </td>
-                    <td className="text-xs">
-                      {/* If you store phone later, show it here. For now just email */}
-                      {d.email}
-                    </td>
-                    <td>
-                      <span className="badge badge-ghost text-xs">
-                        {d.role}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+
+          {/* Pagination */}
+          <div className="flex items-center justify-center gap-3 mt-6">
+            <button
+              className="btn btn-outline btn-sm"
+              onClick={handlePrev}
+              disabled={page <= 1}
+            >
+              Prev
+            </button>
+            <span className="text-sm text-slate-600">
+              Page <b>{page}</b> of <b>{totalPages}</b>
+            </span>
+            <button
+              className="btn btn-outline btn-sm"
+              onClick={handleNext}
+              disabled={page >= totalPages}
+            >
+              Next
+            </button>
           </div>
-        )}
-      </div>
+        </>
+      )}
     </div>
   );
 }
