@@ -1,16 +1,35 @@
-# React + Vite
+# 🩸 Blood Donation App (Client)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Frontend for the Blood Donation App built with **React (Vite)** and deployed on **Firebase Hosting**.
 
-Currently, two official plugins are available:
+## 🚀 Live Site
+- https://blood-donation-app11189.web.app
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 🛠 Tech Stack
+- React + Vite
+- Tailwind CSS
+- Fetch API
+- Firebase Hosting
 
-## React Compiler
+## ✨ Features
+- User authentication UI (login/register)
+- View public blood requests
+- Protected pages (token-based access)
+- Responsive UI
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the ESLint configuration
+## ⚙️ Environment Variables
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Create these files in the project root (same folder as `package.json`):
+
+### `.env.development`
+VITE_API_BASE_URL=http://localhost:5000
+### `.env.production`
+VITE_API_BASE_URL=https://blood-donation-server-rosy.vercel.app
+###Deploy to Firebase Hosting
+npm i -g firebase-tools
+firebase login
+firebase init hosting
+npm run build
+firebase deploy --only hosting
