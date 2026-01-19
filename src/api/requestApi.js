@@ -1,82 +1,122 @@
 // client/src/api/requestApi.js
-import { apiRequest } from "./apiClient.js";
 
-// Create donation request
-export function createDonationRequestApi(payload) {
-  return apiRequest("/api/requests", {
-    method: "POST",
-    body: JSON.stringify(payload),
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL ||
+  import.meta.env.VITE_API_URL ||
+  import.meta.env.VITE_SERVER_URL ||
+  ""; // keep "" to allow same-origin / proxy setups
+
+function getToken() {
+  // Adjust if your app stores token under a different key
+  return (
+    localStorage.getItem("token") ||
+    localStorage.getItem("accessToken") ||
+    ""
+  );
+}
+
+async function http(path, { method = "GET", body, auth = false } = {}) {
+  const headers = { "Content-Type": "application/json" };
+  if (auth) {
+    const token = getToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${API_BASE}${path}`, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
   });
+
+  const text = await res.text();
+  const data = text ? JSON.parse(text) : null;
+
+  if (!res.ok) {
+    const msg = data?.message || `Request failed (${res.status})`;
+    throw new Error(msg);
+  }
+  return data;
 }
 
-// Logged-in user's own requests (as requester)
-export function getMyDonationRequestsApi({ page = 1, limit = 10, status } = {}) {
-  const params = new URLSearchParams({ page, limit });
-  if (status) params.set("status", status);
-  return apiRequest(`/api/requests/my?${params.toString()}`);
-}
-
-// Admin: all requests
-export function getAllDonationRequestsApi({ page, limit, status } = {}) {
+function withQuery(path, query = {}) {
   const params = new URLSearchParams();
-  if (page) params.set("page", page);
-  if (limit) params.set("limit", limit);
-  if (status) params.set("status", status);
+  Object.entries(query).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== "") params.set(k, String(v));
+  });
   const qs = params.toString();
-  const path = qs ? `/api/requests/all?${qs}` : "/api/requests/all";
-  return apiRequest(path);
+  return qs ? `${path}?${qs}` : path;
 }
 
-// Public: pending requests
+// Public: GET /api/requests/pending-public
 export function getPublicPendingRequestsApi({ page = 1, limit = 10 } = {}) {
-  const params = new URLSearchParams({ page, limit });
-  return apiRequest(`/api/requests/pending-public?${params.toString()}`);
+  return http(withQuery("/api/requests/pending-public", { page, limit }));
 }
 
-// Volunteer: requests assigned to logged-in volunteer (as donor)
-export function getVolunteerRequestsApi({ page, limit, status } = {}) {
-  const params = new URLSearchParams();
-  if (page) params.set("page", page);
-  if (limit) params.set("limit", limit);
-  if (status) params.set("status", status);
-  const qs = params.toString();
-  const path = qs
-    ? `/api/requests/volunteer/my?${qs}`
-    : "/api/requests/volunteer/my";
-  return apiRequest(path);
+// Donor (auth): POST /api/requests
+export function createDonationRequestApi(payload) {
+  return http("/api/requests", { method: "POST", body: payload, auth: true });
 }
 
-// Get a single request by id
+// Requester (auth): GET /api/requests/my
+export function getMyDonationRequestsApi({ page = 1, limit = 10, status } = {}) {
+  return http(withQuery("/api/requests/my", { page, limit, status }), {
+    auth: true,
+  });
+}
+
+// Volunteer (auth): GET /api/requests/volunteer/my
+export function getVolunteerRequestsApi({
+  page = 1,
+  limit = 10,
+  status,
+} = {}) {
+  return http(withQuery("/api/requests/volunteer/my", { page, limit, status }), {
+    auth: true,
+  });
+}
+
+// Admin (auth): GET /api/requests/all
+export function getAllDonationRequestsApi({
+  page = 1,
+  limit = 10,
+  status,
+} = {}) {
+  return http(withQuery("/api/requests/all", { page, limit, status }), {
+    auth: true,
+  });
+}
+
+// Auth: GET /api/requests/:id
 export function getDonationRequestByIdApi(id) {
-  return apiRequest(`/api/requests/${id}`);
+  if (!id) throw new Error("Request id is required");
+  return http(`/api/requests/${id}`, { auth: true });
 }
 
-// Update request (owner/admin)
+// Owner/Admin (auth): PUT /api/requests/:id
 export function updateDonationRequestApi(id, payload) {
-  return apiRequest(`/api/requests/${id}`, {
-    method: "PUT",
-    body: JSON.stringify(payload),
-  });
+  if (!id) throw new Error("Request id is required");
+  return http(`/api/requests/${id}`, { method: "PUT", body: payload, auth: true });
 }
 
-// Donor accepts a request
+// Donor (auth): PATCH /api/requests/:id/donate
 export function donateToRequestApi(id) {
-  return apiRequest(`/api/requests/${id}/donate`, {
-    method: "PATCH",
-  });
+  if (!id) throw new Error("Request id is required");
+  return http(`/api/requests/${id}/donate`, { method: "PATCH", auth: true });
 }
 
-// Change status (admin/owner/volunteer depending on backend rules)
+// Admin/Owner/Donor (auth): PATCH /api/requests/:id/status  body: { status }
 export function changeDonationStatusApi(id, status) {
-  return apiRequest(`/api/requests/${id}/status`, {
+  if (!id) throw new Error("Request id is required");
+  if (!status) throw new Error("Status is required");
+  return http(`/api/requests/${id}/status`, {
     method: "PATCH",
-    body: JSON.stringify({ status }),
+    body: { status },
+    auth: true,
   });
 }
 
-// Delete request (owner/admin)
+// Owner/Admin (auth): DELETE /api/requests/:id
 export function deleteDonationRequestApi(id) {
-  return apiRequest(`/api/requests/${id}`, {
-    method: "DELETE",
-  });
+  if (!id) throw new Error("Request id is required");
+  return http(`/api/requests/${id}`, { method: "DELETE", auth: true });
 }

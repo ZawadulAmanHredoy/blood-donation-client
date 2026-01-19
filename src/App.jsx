@@ -18,6 +18,7 @@ import AdminRequests from "./pages/AdminRequests.jsx";
 import VolunteerRequests from "./pages/VolunteerRequests.jsx";
 import ProfilePage from "./pages/ProfilePage.jsx";
 import FundingPage from "./pages/FundingPage.jsx";
+import PublicRequestDetails from "./pages/PublicRequestDetails.jsx";
 
 import Navbar from "./components/Navbar.jsx";
 import Footer from "./components/Footer.jsx";
@@ -34,6 +35,7 @@ function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/search-donors" element={<SearchDonors />} />
         <Route path="/donation-requests" element={<PendingRequestsPublic />} />
+        <Route path="/requests/:id" element={<PublicRequestDetails />} />
 
         {/* Dashboard (protected) */}
         <Route
